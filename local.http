@@ -1,0 +1,210 @@
+### =========================================================
+### AEM EDS Admin API — wknd-backlink-test
+### =========================================================
+### Use with VS Code "REST Client" extension or IntelliJ HTTP client
+### Preview = .aem.page (draft) | Live = .aem.live (production)
+### Content source: Google Drive
+### =========================================================
+###
+### SETUP STEPS (one-time):
+###
+###   1. Create a GitHub repo with AEM EDS boilerplate code
+###      - fstab.yaml should point to your Google Drive folder:
+###        mountpoints:
+###          /: https://drive.google.com/drive/folders/{folderId}
+###
+###   2. Install AEM Code Sync on the repo
+###      - Go to: https://github.com/apps/aem-code-sync/installations/new
+###      - Select your account, add the repo, click Install
+###
+###   3. Share your Google Drive folder with helix@adobe.com (editor)
+###
+###   4. Make sure your Drive folder has content
+###      - At minimum: index (Google Doc), nav, footer
+###      - For redirects: a Google Sheet named redirects
+###
+###   5. Run the /code endpoint below to sync your repo config
+###
+###   6. Run the /preview endpoint to fetch content from Google Drive
+###
+###   7. Check /status — sourceLocation should show gdrive:
+###
+###   8. Open the preview URL in your browser to verify:
+###      https://main--wknd-backlink-test--mimchome.aem.page/
+###
+### =========================================================
+
+@base = https://admin.hlx.page
+@org = mimchome
+@repo = wknd-backlink-test
+@branch = main
+@site = {{org}}/{{repo}}/{{branch}}
+
+
+### =========================================================
+### CODE UPDATE (POST — forces EDS to re-read fstab.yaml)
+### =========================================================
+### Run this after changing fstab.yaml or any repo config.
+
+### Refresh code/config
+POST {{base}}/code/{{site}}/
+
+
+### =========================================================
+### PREVIEW (POST → .aem.page)
+### =========================================================
+
+### Preview home
+POST {{base}}/preview/{{site}}/
+
+### Preview trips
+POST {{base}}/preview/{{site}}/trips
+
+### Preview nav
+POST {{base}}/preview/{{site}}/nav
+
+### Preview footer
+POST {{base}}/preview/{{site}}/footer
+
+### Preview redirects sheet (.json suffix for Sheets)
+POST {{base}}/preview/{{site}}/redirects.json
+
+
+### =========================================================
+### PUBLISH (POST → .aem.live)
+### =========================================================
+
+### Publish home
+POST {{base}}/live/{{site}}/
+
+### Publish trips
+POST {{base}}/live/{{site}}/trips
+
+### Publish nav
+POST {{base}}/live/{{site}}/nav
+
+### Publish footer
+POST {{base}}/live/{{site}}/footer
+
+### Publish redirects sheet
+POST {{base}}/live/{{site}}/redirects.json
+
+
+### =========================================================
+### STATUS (GET)
+### =========================================================
+
+### Status home
+GET {{base}}/status/{{site}}/
+
+### Status trips
+GET {{base}}/status/{{site}}/trips
+
+### Status redirects
+GET {{base}}/status/{{site}}/redirects.json
+
+
+### =========================================================
+### UNPUBLISH (DELETE — clears CDN cache)
+### =========================================================
+
+### Unpublish adventures from live
+DELETE {{base}}/live/{{site}}/adventures
+
+### Unpublish adventures from preview
+DELETE {{base}}/preview/{{site}}/adventures
+
+
+### =========================================================
+### PREVIEW URL (open in browser to verify)
+### =========================================================
+###
+### https://main--wknd-backlink-test--mimchome.aem.page/
+
+
+### =========================================================
+### GOOGLE SHEETS API — Manage redirects sheet
+### =========================================================
+###
+### SETUP (one-time):
+###   1. Go to https://console.cloud.google.com
+###   2. Create a project (or use existing)
+###   3. Enable "Google Sheets API" under APIs & Services
+###   4. Create OAuth 2.0 credentials (type: Web application)
+###      - Add redirect URI: https://oauth.pgltools.com/callback (for REST Client)
+###      - Or: https://developers.google.com/oauthplayground (for playground)
+###   5. Copy Client ID and Client Secret below
+###
+### GET YOUR SPREADSHEET ID:
+###   Open your redirects sheet → URL looks like:
+###   https://docs.google.com/spreadsheets/d/XXXXX/edit
+###   The XXXXX part is your sheetId
+
+@sheetsBase = https://sheets.googleapis.com/v4/spreadsheets
+@sheetId = PASTE_YOUR_SHEET_ID_HERE
+@clientId = PASTE_YOUR_CLIENT_ID_HERE
+@clientSecret = PASTE_YOUR_CLIENT_SECRET_HERE
+@redirectUri = https://developers.google.com/oauthplayground
+@authCode = PASTE_AUTH_CODE_HERE
+@token = PASTE_YOUR_ACCESS_TOKEN_HERE
+@refreshToken = PASTE_YOUR_REFRESH_TOKEN_HERE
+
+
+### ---- STEP 1: Get auth code (open this URL in browser) ----
+### Copy this URL into your browser, sign in, authorize, copy the code from the redirect:
+### https://accounts.google.com/o/oauth2/v2/auth?client_id={{clientId}}&redirect_uri={{redirectUri}}&response_type=code&scope=https://www.googleapis.com/auth/spreadsheets&access_type=offline
+
+### ---- STEP 2: Exchange auth code for tokens ----
+### Run this ONCE after getting the auth code from step 1
+### Copy access_token and refresh_token from the response into the variables above
+# @name getTokens
+POST https://oauth2.googleapis.com/token
+Content-Type: application/x-www-form-urlencoded
+
+code={{authCode}}&client_id={{clientId}}&client_secret={{clientSecret}}&redirect_uri={{redirectUri}}&grant_type=authorization_code
+
+### ---- STEP 3: Refresh token (when access token expires after 1hr) ----
+### Use this to get a new access_token without re-authorizing
+# @name refreshToken
+POST https://oauth2.googleapis.com/token
+Content-Type: application/x-www-form-urlencoded
+
+refresh_token={{refreshToken}}&client_id={{clientId}}&client_secret={{clientSecret}}&grant_type=refresh_token
+
+### ---- SHEETS API CALLS ----
+
+### Read all redirects
+GET {{sheetsBase}}/{{sheetId}}/values/Sheet1!A:B
+Authorization: Bearer {{token}}
+
+### Append a new redirect row
+POST {{sheetsBase}}/{{sheetId}}/values/Sheet1!A:B:append?valueInputOption=RAW
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"values": [["/old-path", "/new-path"]]}
+
+### Append multiple redirect rows at once
+POST {{sheetsBase}}/{{sheetId}}/values/Sheet1!A:B:append?valueInputOption=RAW
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"values": [["/page-one", "/new-one"], ["/page-two", "/new-two"]]}
+
+### Update a specific row (e.g. row 2)
+PUT {{sheetsBase}}/{{sheetId}}/values/Sheet1!A2:B2?valueInputOption=RAW
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"values": [["/magazine", "/faqs"]]}
+
+### Clear a specific row (e.g. remove row 3)
+POST {{sheetsBase}}/{{sheetId}}/values/Sheet1!A3:B3:clear
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### Get sheet metadata (see sheet names, row counts)
+GET {{sheetsBase}}/{{sheetId}}?fields=sheets.properties
+Authorization: Bearer {{token}}
