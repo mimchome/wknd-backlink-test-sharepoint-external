@@ -9,5 +9,5 @@ Codebase for the fictional WKND site, showcasing the capabilities of Adobe's Edg
 
 ## Environments
 - Preview: https://main--wknd-backlink-test-sharepoint-external--mimchome.aem.page 
-- Live: https://main--wknd--hlxsites.hlx.live/](https://main--wknd-backlink-test-sharepoint-external--mimchome.aem.live
+- Live: https://main--wknd-backlink-test-sharepoint-external--mimchome.aem.live
 
